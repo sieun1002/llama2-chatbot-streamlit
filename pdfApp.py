@@ -21,7 +21,7 @@ class ChatPDF:
     chain = None
 
     def __init__(self):
-        self.model = ChatOllama(model="mistral")
+        self.model = ChatOllama(model="llama2:latest")
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1024, chunk_overlap=100
         )
@@ -109,23 +109,32 @@ for message in st.session_state.messages:
     with st.chat_message(message['role']):
         st.markdown(message['content'])
 
+# 챗봇 응답 생성 및 표시
+def generate_chat_response(prompt):
+    if uploaded_file is not None:
+        # PDF 파일이 업로드된 경우
+        return chat_pdf.ask(prompt)
+    else:
+        # PDF 파일이 업로드되지 않은 경우
+        response = run_prompt(model, prompt)
+        return "\n".join([line.get('response', '') for line in response if line.get('done') != True])
+
 # 사용자 입력 처리
 if prompt := st.chat_input('What is up?'):
-    st.chat_message('user').text(f'''
+    user_message = f'''
         {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}:
 
         {prompt}
-        ''')
+        '''
+    st.chat_message('user').text(user_message)
     st.session_state.messages.append({'role': 'user', 'content': prompt})
 
     # 챗봇 응답 생성 및 표시
     with st.spinner('Querying LLaMA 2...'):
-        response = run_prompt(model, prompt)
-
-    chat_response = f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}:\n\n"
-    with st.chat_message('assistant'):
-        for line in response:
-            if line['done'] != True and 'response' in line:
-                chat_response += line['response']
-        st.markdown(chat_response)
-        st.session_state.messages.append({'role': 'chatbot', 'content': chat_response})
+        chat_response = generate_chat_response(prompt)
+        
+    if chat_response:
+        chat_response = f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}:\n\n{chat_response}"
+        with st.chat_message('assistant'):
+            st.markdown(chat_response)
+            st.session_state.messages.append({'role': 'chatbot', 'content': chat_response})
